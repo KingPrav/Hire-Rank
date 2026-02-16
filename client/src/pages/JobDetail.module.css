@@ -1,0 +1,197 @@
+.container {
+  min-height: 100vh;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 32px;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.back:hover {
+  color: var(--accent);
+}
+
+.header h1 {
+  margin: 0 0 8px;
+  font-size: 1.75rem;
+}
+
+.desc {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.uploadSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.uploadBtn {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--bg-primary);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.uploadBtn:hover:not(:disabled) {
+  opacity: 0.95;
+}
+
+.uploadBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.uploadError {
+  color: var(--error);
+  font-size: 0.9rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.tab,
+.tabActive {
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.tab:hover {
+  border-color: var(--text-secondary);
+}
+
+.tabActive {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.rankings,
+.candidates {
+  min-height: 200px;
+}
+
+.empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 48px;
+}
+
+.rankingList,
+.candidateList {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.rankingCard {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.rankBadge {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+  color: var(--bg-primary);
+  font-weight: 700;
+  font-size: 1rem;
+  border-radius: var(--radius-sm);
+}
+
+.rankContent {
+  flex: 1;
+}
+
+.rankContent h3,
+.candidateCard h3 {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+}
+
+.email {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.scoreRow {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.score {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.match {
+  font-size: 0.9rem;
+  color: var(--success);
+}
+
+.skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.skillTag {
+  padding: 4px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.candidateCard {
+  padding: 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.exp {
+  margin: 12px 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: var(--text-secondary);
+}
