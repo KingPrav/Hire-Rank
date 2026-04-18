@@ -1,87 +1,68 @@
 const pdfParse = require('pdf-parse');
 const fs = require('fs').promises;
-const path = require('path');
-const { normalizeSkill } = require('../utils/skillNormalizer');
-const { extractYearsFromText } = require('../utils/extractYears');
+const { parseResume } = require('./resumeParserAgent');
 
 /**
- * Known skills to look for in resume text (lowercase for matching)
- */
-const KNOWN_SKILLS = [
-  'javascript', 'typescript', 'python', 'java', 'c++', 'c#', 'ruby', 'go', 'rust', 'php', 'swift', 'kotlin',
-  'react', 'vue', 'angular', 'node', 'express', 'django', 'flask', 'spring', 'laravel', 'rails',
-  'html', 'css', 'sass', 'tailwind', 'bootstrap', 'redux', 'graphql', 'rest', 'mongodb', 'mysql',
-  'postgresql', 'redis', 'sql', 'aws', 'docker', 'kubernetes', 'jenkins', 'git', 'linux', 'agile',
-  'scrum', 'jira', 'machine learning', 'ai', 'data structures', 'algorithms', 'testing', 'jest',
-  'mocha', 'cypress', 'ci/cd', 'terraform', 'ansible',
-];
-
-/**
- * Extract skills from raw resume text
- */
-const extractSkillsFromText = (rawText) => {
-  if (!rawText || typeof rawText !== 'string') return [];
-
-  const text = rawText.toLowerCase();
-  const skillMap = new Map(); // name -> years
-
-  // Check known skills
-  for (const skill of KNOWN_SKILLS) {
-    const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'gi');
-    if (regex.test(rawText)) {
-      const canonical = normalizeSkill(skill);
-      const years = extractYearsFromText(rawText, skill) || 0;
-      const existing = skillMap.get(canonical);
-      skillMap.set(canonical, Math.max(existing || 0, years));
-    }
-  }
-
-  // Extract total experience (e.g., "5 years of experience", "3+ years experience")
-  const totalExpMatch = rawText.match(/(?:total|overall|[\d.]+)\s*(?:\+)?\s*years?\s*(?:of\s*)?(?:experience|exp)/i)
-    || rawText.match(/([\d.]+)\s*(?:\+)?\s*years?\s*(?:of\s*)?(?:software|development|engineering)/i);
-  let totalExperience = 0;
-  if (totalExpMatch) {
-    const numMatch = totalExpMatch[0].match(/([\d.]+)/);
-    if (numMatch) totalExperience = parseFloat(numMatch[1]) || 0;
-  }
-
-  const skills = Array.from(skillMap.entries()).map(([name, years]) => ({
-    name,
-    years: years || (totalExperience > 0 ? Math.round(totalExperience / 2) : 0),
-  }));
-
-  return { skills, totalExperience };
-};
-
-/**
- * Parse PDF file and extract candidate data
+ * Parse PDF file and extract candidate data.
+ *
+ * Previously used a regex-based skill extractor with 54 hardcoded KNOWN_SKILLS.
+ * Now delegates to the LangGraph 4-node agent which:
+ *   1. Splits the resume into labelled sections (Section Parser)
+ *   2. Infers skills from experience/project bullets with confidence scores (Bullet Analyzer)
+ *   3. Merges inferred + listed skills, tags provenance (Skills Reconciler)
+ *   4. Validates every skill against the raw text — catches hallucinations (Hallucination Validator)
+ *
+ * Return shape is unchanged so matchController.js needs no modification.
+ * Skills now carry: { name, years, source, confidence, reasoning }
+ * Plus a new field: flaggedSkills — skills the LLM couldn't ground in the resume text,
+ * each with an actionable advice string for the candidate.
  */
 const parseResumePDF = async (filePath) => {
   const dataBuffer = await fs.readFile(filePath);
   const data = await pdfParse(dataBuffer);
   const rawText = data.text || '';
 
-  const { skills, totalExperience } = extractSkillsFromText(rawText);
+  // Run the agent
+  const { validatedSkills, flaggedSkills, sections } = await parseResume(rawText);
 
-  // Extract name (first line or "Name:" pattern)
-  const nameMatch = rawText.match(/(?:^|\n)\s*(?:name|full name)[\s:]*([^\n]+)/i)
-    || rawText.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/m);
+  // Extract name — best effort from raw text (agent doesn't handle PII)
+  const nameMatch =
+    rawText.match(/(?:^|\n)\s*(?:name|full name)[\s:]*([^\n]+)/i) ||
+    rawText.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/m);
   const name = nameMatch ? nameMatch[1].trim() : 'Unknown Candidate';
 
   // Extract email
   const emailMatch = rawText.match(/[\w.-]+@[\w.-]+\.\w+/);
   const email = emailMatch ? emailMatch[0] : '';
 
+  // Estimate total experience from education dates or explicit mentions in raw text
+  const totalExpMatch =
+    rawText.match(/(?:[\d.]+)\s*(?:\+)?\s*years?\s*(?:of\s*)?(?:experience|exp)/i) ||
+    rawText.match(/([\d.]+)\s*(?:\+)?\s*years?\s*(?:of\s*)?(?:software|development|engineering)/i);
+  let totalExperience = 0;
+  if (totalExpMatch) {
+    const numMatch = totalExpMatch[0].match(/([\d.]+)/);
+    if (numMatch) totalExperience = parseFloat(numMatch[1]) || 0;
+  }
+  // Fallback: average years across skills that have a years value
+  if (!totalExperience && validatedSkills.length > 0) {
+    const withYears = validatedSkills.filter((s) => s.years && s.years > 0);
+    if (withYears.length > 0) {
+      totalExperience = withYears.reduce((sum, s) => sum + s.years, 0) / withYears.length;
+    }
+  }
+
   return {
     name,
     email,
-    skills,
-    totalExperience: totalExperience || skills.reduce((sum, s) => sum + (s.years || 0), 0) / Math.max(skills.length, 1),
+    skills: validatedSkills,   // Array<{ name, years, source, confidence, reasoning }>
+    flaggedSkills,              // Array<{ name, reason, advice }> — new, surfaced to UI
+    totalExperience,
     rawText,
+    sections,                  // { experience[], projects[], skills[], education[] }
   };
 };
 
 module.exports = {
   parseResumePDF,
-  extractSkillsFromText,
 };

@@ -3,6 +3,7 @@ node_modules/
 .env.local
 .env.*.local
 uploads/
+INTERVIEW_PREP.md
 *.log
 .DS_Store
 client/build/

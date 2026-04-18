@@ -16,14 +16,16 @@ const getExperienceMultiplier = (years) => {
 };
 
 /**
- * Get candidate's years for a skill (with normalization)
+ * Get candidate's years for a skill (with normalization).
+ * Returns null if skill not found; otherwise returns years (0 if not extracted).
  */
 const getCandidateSkillYears = (candidate, skillName) => {
   const normalized = normalizeSkill(skillName);
   const skill = candidate.skills.find(
     (s) => normalizeSkill(s.name) === normalized || s.name.toLowerCase() === skillName.toLowerCase()
   );
-  return skill ? (skill.years || 0) : 0;
+  if (!skill) return null;
+  return skill.years ?? 0;
 };
 
 /**
@@ -38,14 +40,16 @@ const calculateCandidateScore = (candidate, job) => {
   // Required skills (full weight)
   for (const { name, weight } of requiredSkills) {
     const years = getCandidateSkillYears(candidate, name);
+    if (years === null) continue; // No skill - no contribution, no match
     const multiplier = getExperienceMultiplier(years);
     score += weight * multiplier;
-    if (years > 0) matchedRequired++;
+    matchedRequired++; // Has skill - count as match (even if years is 0)
   }
 
   // Nice-to-have skills (lower weight: 0.5x)
   for (const { name, weight } of niceToHaveSkills) {
     const years = getCandidateSkillYears(candidate, name);
+    if (years === null) continue; // No skill - no contribution
     const multiplier = getExperienceMultiplier(years);
     score += 0.5 * weight * multiplier;
   }
