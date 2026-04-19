@@ -19,13 +19,49 @@ export default function MatchPage() {
   const [jdText, setJdText] = useState('');
   const [result, setResult] = useState(null);
   const [totalAnalyses, setTotalAnalyses] = useState(null);
+  const [averageRating, setAverageRating]  = useState(null);
+  const [totalRatings, setTotalRatings]    = useState(0);
+  const [showRating, setShowRating]        = useState(false);
+  const [hoverStar, setHoverStar]          = useState(0);
+  const [selectedStar, setSelectedStar]    = useState(0);
+  const [ratingComment, setRatingComment]  = useState('');
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [ratingLoading, setRatingLoading]  = useState(false);
 
-  // Fetch live usage count on mount
+  // Fetch live stats on mount
   useEffect(() => {
     axios.get(`${API_BASE}/api/match/stats`)
-      .then(({ data }) => setTotalAnalyses(data.totalAnalyses))
-      .catch(() => setTotalAnalyses(null));
+      .then(({ data }) => {
+        setTotalAnalyses(data.totalAnalyses);
+        setAverageRating(data.averageRating);
+        setTotalRatings(data.totalRatings);
+      })
+      .catch(() => {});
   }, []);
+
+  // Show rating popup 2s after results appear
+  useEffect(() => {
+    if (result) {
+      const t = setTimeout(() => setShowRating(true), 2000);
+      return () => clearTimeout(t);
+    } else {
+      setShowRating(false);
+      setSelectedStar(0);
+      setRatingComment('');
+      setRatingSubmitted(false);
+    }
+  }, [result]);
+
+  const submitRating = async () => {
+    if (!selectedStar) return;
+    setRatingLoading(true);
+    try {
+      await axios.post(`${API_BASE}/api/match/rate`, { score: selectedStar, comment: ratingComment });
+      setRatingSubmitted(true);
+    } catch { /* silent */ } finally {
+      setRatingLoading(false);
+    }
+  };
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState('');
@@ -163,11 +199,23 @@ export default function MatchPage() {
           <div className={styles.statsInner}>
             <div className={styles.statItem}>
               <span className={styles.statNumber}>
-                {totalAnalyses !== null
-                  ? totalAnalyses.toLocaleString()
-                  : '—'}
+                {totalAnalyses !== null ? totalAnalyses.toLocaleString() : '—'}
               </span>
               <span className={styles.statLabel}>Resumes Analyzed</span>
+            </div>
+            <div className={styles.statDivider} />
+            <div className={styles.statItem}>
+              <span className={styles.statNumber}>
+                {averageRating !== null ? (
+                  <span className={styles.statRating}>
+                    {'★'.repeat(Math.round(averageRating))}{'☆'.repeat(5 - Math.round(averageRating))}
+                    <span className={styles.statRatingNum}> {averageRating}</span>
+                  </span>
+                ) : '—'}
+              </span>
+              <span className={styles.statLabel}>
+                Avg Rating {totalRatings > 0 ? `· ${totalRatings} reviews` : ''}
+              </span>
             </div>
             <div className={styles.statDivider} />
             <div className={styles.statItem}>
@@ -454,6 +502,63 @@ export default function MatchPage() {
       <footer className={styles.footer}>
         <p>HireRank · Built with LangGraph · gpt-4o-mini · No data stored</p>
       </footer>
+
+      {/* ── Rating popup ──────────────────────────────────────── */}
+      {showRating && result && (
+        <div className={styles.ratingOverlay} onClick={(e) => { if (e.target === e.currentTarget) setShowRating(false); }}>
+          <div className={styles.ratingCard}>
+            {ratingSubmitted ? (
+              <div className={styles.ratingThanks}>
+                <div className={styles.ratingThanksIcon}>🎉</div>
+                <h3 className={styles.ratingThanksTitle}>Thanks for the feedback!</h3>
+                <p className={styles.ratingThanksText}>You're helping other students get better results.</p>
+                <button className={styles.ratingCloseBtn} onClick={() => setShowRating(false)}>Close</button>
+              </div>
+            ) : (
+              <>
+                <button className={styles.ratingX} onClick={() => setShowRating(false)}>✕</button>
+                <div className={styles.ratingEmoji}>⭐</div>
+                <h3 className={styles.ratingTitle}>How helpful was this?</h3>
+                <p className={styles.ratingSub}>Rate your experience — helps us improve for every student</p>
+
+                <div className={styles.stars}>
+                  {[1,2,3,4,5].map((n) => (
+                    <button
+                      key={n}
+                      className={`${styles.star} ${n <= (hoverStar || selectedStar) ? styles.starActive : ''}`}
+                      onMouseEnter={() => setHoverStar(n)}
+                      onMouseLeave={() => setHoverStar(0)}
+                      onClick={() => setSelectedStar(n)}
+                    >★</button>
+                  ))}
+                </div>
+
+                {selectedStar > 0 && (
+                  <p className={styles.starLabel}>
+                    {['','Needs work 😬','Could be better 🤔','It\'s okay 🙂','Really helpful 😊','Absolutely nailed it! 🔥'][selectedStar]}
+                  </p>
+                )}
+
+                <textarea
+                  className={styles.ratingTextarea}
+                  placeholder="Any comments? (optional)"
+                  value={ratingComment}
+                  onChange={(e) => setRatingComment(e.target.value)}
+                  maxLength={300}
+                />
+
+                <button
+                  className={`${styles.ratingSubmitBtn} ${!selectedStar ? styles.ratingSubmitDisabled : ''}`}
+                  onClick={submitRating}
+                  disabled={!selectedStar || ratingLoading}
+                >
+                  {ratingLoading ? 'Submitting...' : 'Submit Rating'}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

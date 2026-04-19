@@ -3,6 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const { analyzeMatch } = require('../controllers/matchController');
 const Analytics = require('../models/Analytics');
+const Rating = require('../models/Rating');
 
 const router = express.Router();
 
@@ -26,15 +27,37 @@ const upload = multer({
 // POST /api/match — no auth required (public student tool)
 router.post('/', upload.single('resume'), analyzeMatch);
 
-// GET /api/match/stats — public counter for the UI
+// GET /api/match/stats — public counter + average rating for the UI
 router.get('/stats', async (req, res) => {
   try {
-    const doc = await Analytics.findOne({});
+    const [doc, ratingAgg] = await Promise.all([
+      Analytics.findOne({}),
+      Rating.aggregate([
+        { $group: { _id: null, avg: { $avg: '$score' }, count: { $sum: 1 } } }
+      ]),
+    ]);
+    const agg = ratingAgg[0];
     res.json({
-      totalAnalyses: doc?.totalAnalyses || 0,
+      totalAnalyses:  doc?.totalAnalyses || 0,
+      averageRating:  agg ? Math.round(agg.avg * 10) / 10 : null,
+      totalRatings:   agg?.count || 0,
     });
   } catch {
-    res.json({ totalAnalyses: 0 });
+    res.json({ totalAnalyses: 0, averageRating: null, totalRatings: 0 });
+  }
+});
+
+// POST /api/match/rate — submit a star rating (1–5) with optional comment
+router.post('/rate', async (req, res) => {
+  try {
+    const { score, comment } = req.body;
+    if (!score || score < 1 || score > 5) {
+      return res.status(400).json({ error: 'Score must be between 1 and 5.' });
+    }
+    await Rating.create({ score: Math.round(score), comment: comment?.trim() || '' });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 
