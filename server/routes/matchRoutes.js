@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const { analyzeMatch } = require('../controllers/matchController');
+const Analytics = require('../models/Analytics');
 
 const router = express.Router();
 
@@ -24,5 +25,17 @@ const upload = multer({
 
 // POST /api/match — no auth required (public student tool)
 router.post('/', upload.single('resume'), analyzeMatch);
+
+// GET /api/match/stats — public counter for the UI
+router.get('/stats', async (req, res) => {
+  try {
+    const doc = await Analytics.findOne({});
+    res.json({
+      totalAnalyses: doc?.totalAnalyses || 0,
+    });
+  } catch {
+    res.json({ totalAnalyses: 0 });
+  }
+});
 
 module.exports = router;

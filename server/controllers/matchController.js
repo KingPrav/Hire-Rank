@@ -4,6 +4,7 @@ const { parseJobDescription } = require('../services/jdParserService');
 const { calculateCandidateScore } = require('../services/scoringService');
 const { normalizeSkill } = require('../utils/skillNormalizer');
 const { ChatOpenAI } = require('@langchain/openai');
+const Analytics = require('../models/Analytics');
 
 /**
  * POST /api/match
@@ -75,7 +76,14 @@ Write a brief, honest assessment of this candidate's fit and one concrete action
       },
     ]);
 
-    // 6. Clean up the uploaded file — we don't need to store it
+    // 6. Increment usage counter — fire and forget, never block response
+    Analytics.findOneAndUpdate(
+      {},
+      { $inc: { totalAnalyses: 1 } },
+      { upsert: true, new: true }
+    ).catch(() => {});
+
+    // 7. Clean up the uploaded file — we don't need to store it
     await fs.unlink(file.path).catch(() => {});
 
     res.json({

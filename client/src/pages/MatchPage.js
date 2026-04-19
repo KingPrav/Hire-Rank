@@ -18,6 +18,14 @@ export default function MatchPage() {
   const [resumeFile, setResumeFile] = useState(null);
   const [jdText, setJdText] = useState('');
   const [result, setResult] = useState(null);
+  const [totalAnalyses, setTotalAnalyses] = useState(null);
+
+  // Fetch live usage count on mount
+  useEffect(() => {
+    axios.get(`${API_BASE}/api/match/stats`)
+      .then(({ data }) => setTotalAnalyses(data.totalAnalyses))
+      .catch(() => setTotalAnalyses(null));
+  }, []);
   const [loading, setLoading] = useState(false);
   const [loadingStep, setLoadingStep] = useState(0);
   const [error, setError] = useState('');
@@ -147,6 +155,32 @@ export default function MatchPage() {
             </div>
           </div>
         </section>
+      )}
+
+      {/* ── Stats strip ───────────────────────────────────────── */}
+      {!result && !loading && (
+        <div className={styles.statsStrip}>
+          <div className={styles.statsInner}>
+            <div className={styles.statItem}>
+              <span className={styles.statNumber}>
+                {totalAnalyses !== null
+                  ? totalAnalyses.toLocaleString()
+                  : '—'}
+              </span>
+              <span className={styles.statLabel}>Resumes Analyzed</span>
+            </div>
+            <div className={styles.statDivider} />
+            <div className={styles.statItem}>
+              <span className={styles.statNumber}>4</span>
+              <span className={styles.statLabel}>AI Agent Nodes</span>
+            </div>
+            <div className={styles.statDivider} />
+            <div className={styles.statItem}>
+              <span className={styles.statNumber}>Free</span>
+              <span className={styles.statLabel}>Always</span>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Main ──────────────────────────────────────────────── */}
